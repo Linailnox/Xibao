@@ -16,7 +16,6 @@ import net.minecraftforge.fml.IExtensionPoint;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.loading.FMLPaths;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -38,12 +37,11 @@ public class Xibao {
             var showXibao = !Files.exists(getXibaoStopFile());
             if (showXibao && event.getScreen() instanceof DisconnectedScreen s) {
                 var translatable = Component.translatable("xibao.do_not_show_again");
-                event.addListener(Button
-                        .builder(translatable, XibaoImpl::onPress)
-                        .pos(s.width / 2 - 75, s.height - 30).size(150, 20).build());
+                var disableXibao = new Button(s.width / 2 - 75, s.height - 30, 150, 20, translatable, XibaoImpl::onPress);
+                event.addListener(disableXibao);
             }
         }
-
+        
         @SubscribeEvent
         public static void on(ScreenEvent.BackgroundRendered event) {
             var showXibao = !Files.exists(getXibaoStopFile());

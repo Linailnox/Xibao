@@ -1,41 +1,44 @@
 plugins {
     id 'eclipse'
+    id 'idea'
     id 'maven-publish'
     id 'net.minecraftforge.gradle' version '5.1.+'
-    id 'org.parchmentmc.librarian.forgegradle' version '1.+'
 }
 
-group = 'org.teacon'
-version = '2.1.0'
+version = mod_version
+group = mod_group_id
 
 java {
     archivesBaseName = 'Xibao-Forge-1.19'
     toolchain.languageVersion = JavaLanguageVersion.of(17)
 }
 
+println "Java: ${System.getProperty 'java.version'}, JVM: ${System.getProperty 'java.vm.version'} (${System.getProperty 'java.vendor'}), Arch: ${System.getProperty 'os.arch'}"
 minecraft {
-    mappings channel: 'official', version: '1.19.4'
+    mappings channel: mapping_channel, version: mapping_version
 
     runs {
-        client {
+        configureEach {
             workingDirectory project.file('run')
             property 'forge.logging.markers', 'REGISTRIES'
             property 'forge.logging.console.level', 'info'
             mods {
-                xibao { source sourceSets.main }
+                "${mod_id}" {
+                    source sourceSets.main
+                }
             }
+        }
+
+        client {
+            // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
+            property 'forge.enabledGameTestNamespaces', mod_id
         }
 
         server {
-            workingDirectory project.file('run')
-            property 'forge.logging.markers', 'REGISTRIES'
-            property 'forge.logging.console.level', 'info'
-            mods {
-                xibao { source sourceSets.main }
-            }
+            property 'forge.enabledGameTestNamespaces', mod_id
+            args '--nogui'
         }
-
-        // Yes this mod does not have any data to generate.
+        //Yes this mod does not have any data to generate.
     }
 }
 
@@ -45,57 +48,38 @@ sourceSets.main.resources { srcDir 'src/generated/resources' }
 repositories { /* no repository here*/ }
 
 dependencies {
-    minecraft 'net.minecraftforge:forge:1.19.4-45.0.9'
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
 }
 
-jar {
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version: minecraft_version, minecraft_version_range: minecraft_version_range,
+            forge_version: forge_version, forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_id: mod_id, mod_name: mod_name, mod_license: mod_license, mod_version: mod_version,
+            mod_authors: mod_authors, mod_description: mod_description,
+    ]
+    inputs.properties replaceProperties
+
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
+    }
+}
+
+tasks.named('jar', Jar).configure {
     manifest {
         attributes([
-                "Specification-Title": "Xibao",
-                "Specification-Vendor": "IzzelAliz",
-                "Specification-Version": "1",
-                "Implementation-Title": project.name,
-                "Implementation-Version": "${project.version}",
-                "Implementation-Vendor": "TeaConMC",
+                'Specification-Title'     : mod_id,
+                'Specification-Vendor'    : mod_authors,
+                'Specification-Version'   : '1', // We are version 1 of ourselves
+                'Implementation-Title'    : project.name,
+                'Implementation-Version'  : project.jar.archiveVersion,
+                'Implementation-Vendor'   : mod_authors,
                 "Implementation-Timestamp": "${Instant.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS)}"
         ])
     }
-}
 
-jar.finalizedBy('reobfJar')
-
-publishing {
-    publications {
-        release(MavenPublication) {
-            groupId = "org.teacon"
-            artifactId = "Xibao-Forge-1.19"
-
-            artifact jar
-            pom {
-                name = 'Xibao for Minecraft 1.19'
-                description = 'Ask IzzelAliz what is this'
-                licenses {
-                    license {
-                        name = 'BSD-3-Clause'
-                    }
-                }
-            }
-        }
-    }
-    repositories {
-        maven {
-            name = "teacon"
-            url = "s3://maven/"
-            credentials(AwsCredentials) {
-                accessKey = System.env.ARCHIVE_ACCESS_KEY
-                secretKey = System.env.ARCHIVE_SECRET_KEY
-            }
-        }
-    }
-}
-
-tasks.withType(PublishToMavenRepository) {
-    onlyIf { System.env.ARCHIVE_ACCESS_KEY && System.env.ARCHIVE_SECRET_KEY }
+    finalizedBy 'reobfJar'
 }
 
 /**
